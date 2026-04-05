@@ -10,12 +10,3 @@ Un reproductor web personalizado para Twitch, diseñado para ofrecer una experie
 * **Panel de Chat Dinámico:** Chat de Twitch incrustado a la derecha con un botón animado para ocultarlo o mostrarlo al instante.
 * **Datos en Tiempo Real:** Muestra la foto de perfil del streamer actual y el contador exacto de espectadores en vivo (actualizado automáticamente).
 * **Modo Auto-Ocultable:** En pantalla completa, los controles y el cursor desaparecen automáticamente tras unos segundos de inactividad.
-
-## 🚀 Cómo Usarlo
-
-Como este proyecto no requiere bases de datos ni servidores backend complejos, usarlo es extremadamente sencillo:
-
-### Opción 1: Uso Local
-1. Descarga o clona este repositorio:
-   ```bash
-   git clone [https://github.com/tu-usuario/tu-repositorio.git](https://github.com/tu-usuario/tu-repositorio.git)
