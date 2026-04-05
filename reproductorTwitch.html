@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WatchTV - Custom Player Pro</title>
+  <script src="https://player.twitch.tv/js/embed/v1.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000000;
+      --panel-bg: #09090b;
+      --control-bg: linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 100%);
+      --text: #ededed;
+      --muted: #a1a1aa;
+      --live-red: #ef4444;
+      --progress: #10b981;
+      --border: #27272a;
+      --hover: #27272a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; width: 100%; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; overflow: hidden; }
+    
+    #app { display: flex; height: 100%; width: 100%; position: relative; background: #000; transition: cursor 0.3s; }
+    
+    #video-container { flex: 1; display: flex; flex-direction: column; position: relative; min-width: 0; }
+    #twitch-embed { flex: 1; width: 100%; pointer-events: auto; }
+    
+    .player-controls { 
+      position: absolute; bottom: 0; left: 0; right: 0; height: 56px; 
+      background: var(--control-bg); display: flex; align-items: center; padding: 0 20px; 
+      z-index: 50; user-select: none; transition: opacity 0.4s ease, transform 0.4s ease;
+    }
+    .player-controls.hide { opacity: 0; transform: translateY(10px); pointer-events: none; }
+
+    .ctrl-group { display: flex; align-items: center; gap: 16px; }
+    .ctrl-left { flex: 1; justify-content: flex-start; }
+    .ctrl-center { position: absolute; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; color: var(--live-red); font-size: 13px; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+    .ctrl-right { flex: 1; justify-content: flex-end; }
+
+    .btn { background: none; border: none; color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: color 0.2s, transform 0.1s; padding: 4px; }
+    .btn:hover { color: #fff; transform: scale(1.1); }
+    .divider { width: 1px; height: 18px; background: rgba(255,255,255,0.2); margin: 0 4px; }
+    
+    .volume-container { display: flex; align-items: center; gap: 8px; width: 100px; transition: width 0.3s; }
+    .volume-slider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; outline: none; cursor: pointer; }
+    .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 12px; height: 12px; border-radius: 50%; background: #fff; cursor: pointer; transition: transform 0.1s; }
+    .volume-slider::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+    .live-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--text); }
+    .live-dot { width: 6px; height: 6px; background: var(--live-red); border-radius: 50%; box-shadow: 0 0 6px var(--live-red); }
+    
+    /* Input de Canal y Foto de Perfil Actual */
+    .channel-wrapper { position: relative; display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); background: rgba(255,255,255,0.1); padding: 4px 10px 4px 6px; border-radius: 20px; }
+    
+    .current-avatar { width: 22px; height: 22px; border-radius: 50%; background: #222; overflow: hidden; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .current-avatar img { width: 100%; height: 100%; object-fit: cover; display: none; }
+    
+    .channel-input { background: transparent; border: none; color: #fff; font-family: inherit; font-size: 13px; font-weight: 600; width: 90px; outline: none; }
+    .channel-input::placeholder { color: rgba(255,255,255,0.5); font-weight: 400; }
+
+    .channel-dropdown { position: absolute; bottom: calc(100% + 12px); left: 0; background: rgba(15, 15, 18, 0.95); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 8px; width: 220px; max-height: 300px; overflow-y: auto; display: none; flex-direction: column; z-index: 100; box-shadow: 0 10px 40px rgba(0,0,0,0.8); padding: 6px 0; }
+    .channel-dropdown.show { display: flex; }
+    .drop-item { display: flex; align-items: center; gap: 12px; padding: 8px 14px; cursor: pointer; transition: background 0.2s; }
+    .drop-item:hover { background: rgba(255,255,255,0.1); }
+    .drop-avatar { width: 28px; height: 28px; border-radius: 50%; background: #222; overflow: hidden; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; flex-shrink: 0; }
+    .drop-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .drop-name { font-size: 13px; font-weight: 600; color: var(--text); }
+
+    .settings-menu { position: absolute; bottom: 65px; right: 80px; background: rgba(15, 15, 18, 0.95); backdrop-filter: blur(12px); border: 1px solid var(--border); border-radius: 8px; padding: 6px 0; min-width: 140px; display: none; flex-direction: column; z-index: 100; box-shadow: 0 10px 40px rgba(0,0,0,0.8); }
+    .settings-menu.show { display: flex; }
+    .settings-item { padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; transition: background 0.2s; color: var(--text); display: flex; align-items: center; justify-content: space-between; }
+    .settings-item:hover { background: rgba(255,255,255,0.1); }
+    .settings-item.active { color: var(--progress); }
+
+    .chat-toggle-wrap { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; cursor: pointer; color: var(--text); }
+    .toggle { position: relative; width: 34px; height: 20px; background: rgba(255,255,255,0.2); border-radius: 20px; transition: 0.3s; }
+    .toggle.active { background: var(--progress); }
+    .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: #fff; border-radius: 50%; transition: transform 0.3s; }
+    .toggle.active .toggle-thumb { transform: translateX(14px); }
+
+    #chat-panel { width: 340px; background: var(--panel-bg); border-left: 1px solid #1f1f23; transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.3s; }
+    #chat-panel.hidden { width: 0; min-width: 0; border: none; }
+    #chat-panel iframe { width: 100%; height: 100%; border: none; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <div id="video-container">
+    <div id="twitch-embed"></div>
+    
+    <div class="player-controls" id="playerControls">
+      
+      <div class="ctrl-group ctrl-left">
+        <button class="btn" id="btn-play" onclick="togglePlay()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+        </button>
+        
+        <div class="volume-container">
+          <button class="btn" id="btn-mute" onclick="toggleMute()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          </button>
+          <input type="range" class="volume-slider" id="volumeSlider" min="0" max="1" step="0.01" value="0.5" oninput="changeVolume(this.value)">
+        </div>
+
+        <div class="divider"></div>
+        <div class="live-indicator"><div class="live-dot" id="live-dot"></div> Live</div>
+        <div class="divider"></div>
+        
+        <div class="channel-wrapper" id="channelWrapper">
+          <div class="current-avatar">
+            <img id="currentStreamerAvatar" src="" alt="">
+          </div>
+          <input type="text" id="channelInput" class="channel-input" value="oxidoc" spellcheck="false" autocomplete="off" placeholder="Buscar canal...">
+          
+          <div class="channel-dropdown" id="channelDropdown"></div>
+        </div>
+      </div>
+
+      <div class="ctrl-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span id="viewerCount">Cargando...</span>
+      </div>
+
+      <div class="ctrl-group ctrl-right">
+        <button class="btn" onclick="toggleSettingsMenu()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <div class="divider"></div>
+        
+        <div class="chat-toggle-wrap" onclick="toggleChat()">
+          Chat
+          <div class="toggle active" id="chatToggleBtn"><div class="toggle-thumb"></div></div>
+        </div>
+        
+        <div class="divider"></div>
+        <button class="btn" onclick="toggleFullscreen()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        </button>
+      </div>
+
+      <div class="settings-menu" id="qualityMenu"></div>
+    </div>
+  </div>
+
+  <div id="chat-panel">
+    <iframe id="chatFrame" src=""></iframe>
+  </div>
+</div>
+
+<script>
+let player = null;
+let currentChannel = 'oxidoc';
+let viewerInterval = null;
+let currentQuality = 'auto';
+let hideControlsTimeout = null;
+let isFullscreen = false;
+
+const appContainer = document.getElementById('app');
+const controls = document.getElementById('playerControls');
+const channelInput = document.getElementById('channelInput');
+const channelDropdown = document.getElementById('channelDropdown');
+const qualityMenu = document.getElementById('qualityMenu');
+const currentAvatarImg = document.getElementById('currentStreamerAvatar');
+
+const FAVORITES = ['oxidoc', 'ibai', 'auronplay', 'rubius', 'elxokas', 'rivers_gg', 'illojuan', 'knekro', 'lmdshow'];
+
+/* ── 1. Inicializar Player ── */
+function initPlayer(channel) {
+  currentChannel = channel;
+  document.getElementById('twitch-embed').innerHTML = '';
+  
+  player = new Twitch.Player('twitch-embed', {
+    channel: channel,
+    width: '100%',
+    height: '100%',
+    autoplay: true,
+    controls: false, 
+    parent: [window.location.hostname === '' ? 'localhost' : window.location.hostname]
+  });
+
+  player.addEventListener(Twitch.Player.PLAYING, () => {
+    updatePlayBtnState(true);
+    populateQualities();
+    player.setVolume(document.getElementById('volumeSlider').value);
+  });
+  
+  player.addEventListener(Twitch.Player.PAUSE, () => updatePlayBtnState(false));
+
+  document.getElementById('chatFrame').src = `https://www.twitch.tv/embed/${channel}/chat?darkpopout&parent=${window.location.hostname === '' ? 'localhost' : window.location.hostname}`;
+  
+  // Cargar foto de perfil del streamer actual
+  fetch(`https://decapi.me/twitch/avatar/${channel}`)
+    .then(res => res.text())
+    .then(url => {
+      if(url && !url.includes('User not found')) {
+        currentAvatarImg.src = url;
+        currentAvatarImg.style.display = 'block';
+      } else {
+        currentAvatarImg.style.display = 'none';
+      }
+    }).catch(() => { currentAvatarImg.style.display = 'none'; });
+
+  clearInterval(viewerInterval);
+  fetchViewers(channel);
+  // Actualiza cada 12 segundos para mantenerlo fresco
+  viewerInterval = setInterval(() => fetchViewers(currentChannel), 12000);
+}
+
+/* ── 2. Controles de Reproducción ── */
+function togglePlay() {
+  if(!player) return;
+  if(player.isPaused()) player.play();
+  else player.pause();
+}
+
+function updatePlayBtnState(isPlaying) {
+  const btn = document.getElementById('btn-play');
+  if(isPlaying) {
+    btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>`;
+  } else {
+    btn.innerHTML = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+  }
+}
+
+function toggleMute() {
+  if(!player) return;
+  const isMuted = player.getMuted();
+  player.setMuted(!isMuted);
+  updateMuteIcon(!isMuted);
+  if(!isMuted && player.getVolume() === 0) {
+    player.setVolume(0.5);
+    document.getElementById('volumeSlider').value = 0.5;
+  }
+}
+
+function changeVolume(val) {
+  if(!player) return;
+  player.setVolume(parseFloat(val));
+  if(val > 0 && player.getMuted()) player.setMuted(false);
+  updateMuteIcon(val == 0);
+}
+
+function updateMuteIcon(isMuted) {
+  const btn = document.getElementById('btn-mute');
+  if(isMuted) {
+    btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`;
+  } else {
+    btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>`;
+  }
+}
+
+/* ── 3. Dropdown de Canales ── */
+async function buildChannelDropdown(filterText = '') {
+  channelDropdown.innerHTML = '';
+  const filtered = FAVORITES.filter(c => c.toLowerCase().includes(filterText.toLowerCase()));
+  
+  if(filtered.length === 0) {
+    channelDropdown.innerHTML = `<div style="padding:10px 14px; color:#a1a1aa; font-size:12px;">Presiona Enter para buscar...</div>`;
+    return;
+  }
+
+  for(const login of filtered) {
+    const item = document.createElement('div');
+    item.className = 'drop-item';
+    item.innerHTML = `
+      <div class="drop-avatar" id="avatar-${login}">${login.substring(0,2).toUpperCase()}</div>
+      <div class="drop-name">${login}</div>
+    `;
+    item.onmousedown = (e) => { e.preventDefault(); changeChannel(login); };
+    channelDropdown.appendChild(item);
+    
+    fetch(`https://decapi.me/twitch/avatar/${login}`)
+      .then(res => res.text())
+      .then(url => {
+        if(url && !url.includes('User not found')) {
+          document.getElementById(`avatar-${login}`).innerHTML = `<img src="${url}">`;
+        }
+      }).catch(()=>{});
+  }
+}
+
+channelInput.addEventListener('focus', () => {
+  buildChannelDropdown(channelInput.value);
+  channelDropdown.classList.add('show');
+});
+channelInput.addEventListener('input', () => { buildChannelDropdown(channelInput.value); });
+channelInput.addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') {
+    const val = channelInput.value.trim().toLowerCase();
+    if(val) changeChannel(val);
+  }
+});
+channelInput.addEventListener('blur', () => {
+  setTimeout(() => channelDropdown.classList.remove('show'), 200);
+});
+
+function changeChannel(name) {
+  channelInput.value = name;
+  channelDropdown.classList.remove('show');
+  if(name !== currentChannel) initPlayer(name);
+}
+
+/* ── 4. Fullscreen y Auto-Ocultado ── */
+function toggleFullscreen() {
+  if(!document.fullscreenElement) {
+    if(appContainer.requestFullscreen) appContainer.requestFullscreen();
+    else if(appContainer.webkitRequestFullscreen) appContainer.webkitRequestFullscreen();
+  } else {
+    if(document.exitFullscreen) document.exitFullscreen();
+    else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  isFullscreen = !!document.fullscreenElement;
+  if(!isFullscreen) {
+    controls.classList.remove('hide');
+    appContainer.style.cursor = 'default';
+    clearTimeout(hideControlsTimeout);
+  } else {
+    startAutoHideTimer();
+  }
+});
+
+appContainer.addEventListener('mousemove', () => {
+  if(isFullscreen) {
+    controls.classList.remove('hide');
+    appContainer.style.cursor = 'default';
+    startAutoHideTimer();
+  }
+});
+
+function startAutoHideTimer() {
+  clearTimeout(hideControlsTimeout);
+  hideControlsTimeout = setTimeout(() => {
+    if(!qualityMenu.classList.contains('show') && !channelDropdown.classList.contains('show') && document.activeElement !== channelInput) {
+      controls.classList.add('hide');
+      appContainer.style.cursor = 'none';
+    }
+  }, 2500);
+}
+
+/* ── 5. Chat Toggle ── */
+function toggleChat() {
+  const panel = document.getElementById('chat-panel');
+  const toggleBtn = document.getElementById('chatToggleBtn');
+  
+  if(panel.classList.contains('hidden')) {
+    panel.classList.remove('hidden');
+    toggleBtn.classList.add('active');
+  } else {
+    panel.classList.add('hidden');
+    toggleBtn.classList.remove('active');
+  }
+}
+
+/* ── 6. Menú de Calidades ── */
+function toggleSettingsMenu() { qualityMenu.classList.toggle('show'); }
+document.addEventListener('click', (e) => {
+  if(!e.target.closest('.ctrl-right')) qualityMenu.classList.remove('show');
+});
+
+function populateQualities() {
+  if(!player) return;
+  try {
+    const qs = player.getQualities();
+    qualityMenu.innerHTML = '';
+    createQualityItem('auto', 'Auto');
+    if(qs && qs.length) {
+      qs.forEach(q => { if(q.name !== "auto") createQualityItem(q.name, q.name); });
+    }
+  } catch(e) {}
+}
+
+function createQualityItem(value, label) {
+  const div = document.createElement('div');
+  div.className = `settings-item ${currentQuality === value ? 'active' : ''}`;
+  div.innerHTML = `<span>${label}</span> ${currentQuality === value ? '✓' : ''}`;
+  div.onclick = () => {
+    player.setQuality(value);
+    currentQuality = value;
+    populateQualities();
+    qualityMenu.classList.remove('show');
+  };
+  qualityMenu.appendChild(div);
+}
+
+/* ── 7. Viewers Exactos Constantes ── */
+async function fetchViewers(channel) {
+  const countEl = document.getElementById('viewerCount');
+  const dot = document.getElementById('live-dot');
+  try {
+    const response = await fetch(`https://decapi.me/twitch/viewercount/${channel}`);
+    const text = await response.text();
+    
+    if(text.toLowerCase().includes('offline') || text.includes('no user')) {
+      countEl.style.color = 'var(--muted)';
+      countEl.textContent = 'Offline';
+      dot.style.background = 'var(--muted)';
+      dot.style.boxShadow = 'none';
+    } else {
+      const viewersNum = parseInt(text.replace(/,/g, ''), 10);
+      countEl.style.color = 'var(--live-red)';
+      
+      // Formateo exacto con comas (Ej: 75,500)
+      countEl.textContent = viewersNum.toLocaleString('en-US'); 
+      
+      dot.style.background = 'var(--live-red)';
+      dot.style.boxShadow = '0 0 6px var(--live-red)';
+    }
+  } catch(e) { countEl.textContent = '—'; }
+}
+
+// Iniciar app
+window.addEventListener('load', () => initPlayer(currentChannel));
+</script>
+</body>
+</html>
