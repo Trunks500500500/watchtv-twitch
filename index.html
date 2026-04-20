@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrunksTV</title>
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237c6fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='2' y='7' width='20' height='15' rx='2' ry='2'/><polyline points='17 2 12 7 7 2'/><polygon points='10 11 15 14.5 10 18 10 11' fill='%237c6fff' stroke='none'/></svg>">
+  
+  <script src="https://player.twitch.tv/js/embed/v1.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ovenplayer@latest/dist/ovenplayer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@4/dist/fp.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<div id="landing">
+  <div class="land-card">
+    <div class="land-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+        <polyline points="17 2 12 7 7 2"></polyline>
+        <polygon points="10 11 15 14.5 10 18 10 11" fill="currentColor" stroke="none"></polygon>
+      </svg>
+      <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px;color:var(--text);">TrunksTV</span>
+    </div>
+    <div class="land-title">Bienvenido</div>
+    <div class="land-sub">Inicia sesión con Twitch para ver los canales que sigues, notificaciones al entrar en directo y más.</div>
+    <button class="land-btn" onclick="loginWithTwitch()">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 3l-2 4.5V21h5v3h3l3-3h5l5-5V3H4zm2 2h15v10l-3 3h-5l-3 3v-3H6V5zm4 4v6h2V9h-2zm6 0v6h2V9h-2z"/></svg>
+      Iniciar sesión con Twitch
+    </button>
+    <button class="land-guest" onclick="continueAsGuest()">Continuar sin iniciar sesión</button>
+    <div class="land-foot">Solo pedimos permiso para leer los canales que sigues. No publicamos ni modificamos nada en tu cuenta.</div>
+  </div>
+</div>
+
+
+<div id="app">
+  <div id="video-container">
+
+    <div id="info-bar">
+      <div class="app-brand">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect>
+          <polyline points="17 2 12 7 7 2"></polyline>
+          <polygon points="10 11 15 14.5 10 18 10 11" fill="currentColor" stroke="none"></polygon>
+        </svg>
+        TrunksTV
+      </div>
+      <div class="brand-divider"></div>
+      <span class="game-badge" id="streamGame">—</span>
+      <span class="stream-title" id="streamTitle">Cargando información del stream…</span>
+      <span class="uptime-pill"><span class="uptime-dot"></span><span id="uptimeText">—</span></span>
+    </div>
+
+    <div id="twitch-embed"></div>
+    <div id="multi-grid" class="layout-grid"></div>
+
+    <div class="controls" id="controls">
+      <div class="cg cg-l">
+        <button class="btn" id="btn-play" onclick="togglePlay()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>
+          <span class="btn-tip">Play/Pause</span>
+        </button>
+
+        <div class="vol-wrap">
+          <button class="btn" id="btn-mute" onclick="toggleMute()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            <span class="btn-tip">Silenciar (M)</span>
+          </button>
+          <input type="range" class="vol-slider" id="vol" min="0" max="1" step="0.01" value="0.5" oninput="changeVolume(this.value)">
+        </div>
+        <div class="divider"></div>
+
+        <div class="live-badge" id="liveBadge"><div class="live-dot"></div>LIVE</div>
+        <div class="viewers">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>
+          <span id="viewerCount">—</span>
+        </div>
+        <div class="divider"></div>
+
+        <div class="ch-wrap">
+          <button id="btn-fav-current" class="fav-btn" onclick="toggleFavStatus(S.channel)" style="padding:0 4px; margin-left: 2px;" title="Guardar/Quitar Favorito">
+            <svg id="fav-icon-current" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          </button>
+          <div class="ch-avatar" id="chAvatar"><img id="chAvatarImg" src="" alt=""></div>
+          <input type="text" id="chInput" class="ch-input" spellcheck="false" autocomplete="off" placeholder="Canal…">
+          <div class="ch-dropdown" id="chDropdown"></div>
+        </div>
+      </div>
+
+      <div class="cg cg-c"><span class="clock" id="clock">00:00:00</span></div>
+
+      <div class="cg cg-r">
+        <button class="btn" onclick="shareChannel()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          <span class="btn-tip">Compartir (S)</span>
+        </button>
+        <button class="btn" id="btn-pip" onclick="toggleMini()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><rect x="12" y="10" width="8" height="5" rx="1" fill="currentColor" stroke="none" opacity=".8"/></svg>
+          <span class="btn-tip">Mini Player (P)</span>
+        </button>
+        <button class="btn" id="btn-layout" onclick="toggleLayout()" style="display:none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
+          <span class="btn-tip">Diseño Multi (L)</span>
+        </button>
+        <button class="btn" id="btn-multi-clear" onclick="clearMulti()" style="display:none;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+          <span class="btn-tip">Vaciar multi</span>
+        </button>
+        <button class="btn" id="btn-multi" onclick="toggleMulti()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="9" height="9" rx="1.2"/><rect x="13" y="2" width="9" height="9" rx="1.2"/><rect x="2" y="13" width="9" height="9" rx="1.2"/><rect x="13" y="13" width="9" height="9" rx="1.2"/></svg>
+          <span class="btn-tip">Multi-stream (G)</span>
+        </button>
+        <button class="btn" id="btn-theater" onclick="toggleTheater()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="8" y1="5" x2="8" y2="19"/></svg>
+          <span class="btn-tip">Modo Teatro (T)</span>
+        </button>
+
+        <div class="divider"></div>
+        <div class="toggle-wrap" onclick="toggleChat()">
+          <span class="toggle-label">Chat</span>
+          <div class="tog on" id="chatTog"><div class="tog-thumb"></div></div>
+        </div>
+        <div class="divider"></div>
+
+        <button class="btn" onclick="openSettings(event)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span class="btn-tip">Ajustes</span>
+        </button>
+        <button class="btn" onclick="toggleFullscreen()">
+          <svg id="fsIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+          <span class="btn-tip">Pantalla Completa (F)</span>
+        </button>
+        <div class="settings-menu" id="settingsMenu"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-panel">
+    <div id="chat-tabs" class="chat-tabs"></div>
+    <div class="chat-frame-wrap">
+      <iframe id="chatFrame" src=""></iframe>
+    </div>
+  </div>
+</div>
+
+<div id="mini-player">
+  <div class="mini-bar" id="miniBar">
+    <span class="mini-title" id="miniTitle">Mini Player</span>
+    <button class="mini-close" onclick="toggleMini()">✕</button>
+  </div>
+  <div id="mini-embed"></div>
+  <div class="mini-audio" id="miniAudio">
+    <button class="mini-audio-btn" id="miniMuteBtn" onclick="toggleMiniMute()" title="Silenciar mini">
+      <svg id="miniMuteIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+    </button>
+    <input type="range" class="mini-vol" id="miniVol" min="0" max="1" step="0.01" value="0.5" oninput="changeMiniVolume(this.value)">
+  </div>
+  <div class="mini-resize" id="miniResize" title="Arrastra para redimensionar"></div>
+</div>
+
+<div id="kb-panel" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="kb-card">
+    <div class="kb-head">
+      Atajos de teclado
+      <button class="kb-x" onclick="document.getElementById('kb-panel').classList.remove('open')">✕</button>
+    </div>
+    <div class="kb-row"><span class="kb-desc">Play / Pause</span><span class="kb-key">Space</span></div>
+    <div class="kb-row"><span class="kb-desc">Silenciar</span><span class="kb-key">M</span></div>
+    <div class="kb-row"><span class="kb-desc">Pantalla completa</span><span class="kb-key">F</span></div>
+    <div class="kb-row"><span class="kb-desc">Modo Teatro</span><span class="kb-key">T</span></div>
+    <div class="kb-row"><span class="kb-desc">Mini Player</span><span class="kb-key">P</span></div>
+    <div class="kb-row"><span class="kb-desc">Multi-stream</span><span class="kb-key">G</span></div>
+    <div class="kb-row"><span class="kb-desc">Cambiar Diseño Multi</span><span class="kb-key">L</span></div>
+    <div class="kb-row"><span class="kb-desc">Volumen +10%</span><span class="kb-key">↑</span></div>
+    <div class="kb-row"><span class="kb-desc">Volumen -10%</span><span class="kb-key">↓</span></div>
+    <div class="kb-row"><span class="kb-desc">Compartir enlace</span><span class="kb-key">S</span></div>
+    <div class="kb-row"><span class="kb-desc">Saltar a favorito 1-9</span><span class="kb-key">1…9</span></div>
+    <div class="kb-row"><span class="kb-desc">Cerrar menús</span><span class="kb-key">Esc</span></div>
+    <div class="kb-row"><span class="kb-desc">Esta ayuda</span><span class="kb-key">?</span></div>
+  </div>
+</div>
+
+<script src="assets/app.js"></script>
+</body>
+</html>
